@@ -1,0 +1,15 @@
+[package]
+name = "totp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+arboard = "3.5.0"
+chrono = { version = "0.4.41", features = ["serde"] }
+reqwest = { version = "0.12.20", features = ["json"] }
+rusqlite = { version = "0.36.0", features = ["bundled"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+sha1 = "0.10.6"
+tokio = { version = "1.45.1", features = ["full"] }

@@ -73,7 +73,7 @@ impl TOTPDatabase {
 
     pub(crate) fn get_entry_by_name(&self, name: &str) -> SqliteResult<Option<TOTPEntry>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, name, secret, issuer, created_at FROM totp_entries WHERE name = ?1"
+            "SELECT id, name, secret, issuer, created_at FROM totp_entries WHERE name COLLATE NOCASE = ?1"
         )?;
 
         let mut entries = stmt.query_map([name], |row| {

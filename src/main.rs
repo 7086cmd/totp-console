@@ -252,8 +252,8 @@ fn print_usage() {
     println!("  delete <name>                    Delete an entry");
     println!("  loop [name]                      Continuous refresh mode");
     println!("  copy <name>                      Copy TOTP code to clipboard");
-    println!("  sync (not supported yet)         Sync to Cloudflare KV");
-    println!("  load (not supported yet)         Load from Cloudflare KV");
+    println!("  sync                             Sync to Cloudflare KV");
+    println!("  load                             Load from Cloudflare KV");
     println!();
     println!("Environment Variables (for Cloudflare KV):");
     println!("  CF_ACCOUNT_ID                    Cloudflare account ID");

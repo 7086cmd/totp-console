@@ -1,5 +1,16 @@
 # TOTP in Console
 
+To use Cloudflare KV database, create a KV namespace in your Cloudflare account and set the following environment variables, or create a `kv.json` file that contains following keys:
+
+```json
+{
+  "account_id": "your_account_id",
+  "namespace_id": "your_namespace_id",
+  "api_token": "your_api_token"
+}
+
+```
+
 ```
 🔐 TOTP Console Manager
 Usage: totp-console <command> [args]
@@ -12,8 +23,8 @@ Commands:
   delete <name>                    Delete an entry
   loop [name]                      Continuous refresh mode
   copy <name>                      Copy TOTP code to clipboard
-  sync (not supported yet)         Sync to Cloudflare KV
-  load (not supported yet)         Load from Cloudflare KV
+  sync                             Sync to Cloudflare KV
+  load                             Load from Cloudflare KV
 
 Environment Variables (for Cloudflare KV):
   CF_ACCOUNT_ID                    Cloudflare account ID

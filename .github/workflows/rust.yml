@@ -1,0 +1,169 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: # Trigger this workflow when a tag starting with 'v' is pushed
+      - 'v*' # Example: v1.0, v1.0.1, v2.0-beta
+
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always # Keep cargo output colored
+
+jobs:
+  build_and_test: # This job builds and runs tests on push to main and pull requests
+    runs-on: ${{ matrix.os }} # Run on different operating systems
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest] # Define the OS matrix
+
+    steps:
+      - uses: actions/checkout@v4 # Checkout the repository code
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable # Use dtolnay's action to set up Rust
+        with:
+          toolchain: stable # Install the stable Rust toolchain
+          components: clippy # Install clippy for linting
+
+      - name: Build
+        run: cargo build --verbose # Build the project with verbose output
+
+      - name: Run tests
+        run: cargo test --verbose # Run all tests with verbose output
+
+      - name: Run Clippy
+        run: cargo clippy -- -D warnings # Run clippy and treat warnings as errors
+
+  release_build: # This new job creates release builds and prepares them for distribution
+    needs: build_and_test # This job will only run if 'build_and_test' completes successfully
+    if: startsWith(github.ref, 'refs/tags/v') # Only run this job if the trigger was a tag starting with 'v'
+
+    runs-on: ${{ matrix.os }} # Run this job across different operating systems to create platform-specific releases
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest # For Linux APT packaging (Debian-based)
+          - macos-latest # For Homebrew
+          - windows-latest # For Chocolatey
+
+    steps:
+      - uses: actions/checkout@v4 # Checkout the repository code for the release build
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable # Set up the Rust toolchain for the release build
+        with:
+          toolchain: stable # Use the stable toolchain
+
+      - name: Perform Release Build
+        run: cargo build --release --verbose # Build your project in release mode (optimized for performance)
+
+      - name: Package Release Binary
+        shell: bash # Use bash for cross-platform scripting
+        run: |
+          # Use the repository name 'totp-console' as the binary name
+          BINARY_NAME="${{ github.event.repository.name }}"
+          TARGET_DIR="target/release"
+          
+          # Determine the full path to the executable and the archive name based on the OS
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            EXE_FULL_PATH="${TARGET_DIR}/${BINARY_NAME}.exe"
+            ARCHIVE_NAME="${BINARY_NAME}-${{ github.ref_name }}-${{ matrix.os }}.zip" # Use .zip for Windows releases
+          
+            # Create a temporary directory, copy the executable, and zip it.
+            # The '-j' flag prevents storing the directory structure inside the zip.
+            mkdir -p temp_package
+            cp "${EXE_FULL_PATH}" "temp_package/"
+            zip -j "${ARCHIVE_NAME}" "temp_package/${BINARY_NAME}.exe"
+          else
+            EXE_FULL_PATH="${TARGET_DIR}/${BINARY_NAME}"
+            ARCHIVE_NAME="${BINARY_NAME}-${{ github.ref_name }}-${{ matrix.os }}.tar.gz" # Use .tar.gz for Linux/macOS releases
+          
+            # Create a compressed tar archive of the executable, preserving its name.
+            tar -czvf "${ARCHIVE_NAME}" -C "${TARGET_DIR}" "${BINARY_NAME}"
+          fi
+          
+          # Store the generated archive name and executable path as environment variables for subsequent steps
+          echo "ARCHIVE_NAME=${ARCHIVE_NAME}" >> $GITHUB_ENV
+          echo "EXE_FULL_PATH=${EXE_FULL_PATH}" >> $GITHUB_ENV
+
+      - name: Calculate SHA256 Checksum
+        shell: bash # Use bash for consistent checksum calculation commands
+        run: |
+          # Define the file name for storing the checksum
+          CHECKSUM_FILE="${{ env.ARCHIVE_NAME }}.sha256"
+          
+          # Calculate SHA256 based on the operating system
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            # On Windows, use certutil to get the SHA256 hash
+            checksum=$(certutil -hashfile "${{ env.ARCHIVE_NAME }}" SHA256 | findstr /v "hash file" | findstr /v "^$" | tr -d '[:space:]')
+          else
+            # On Linux/macOS, use shasum
+            checksum=$(shasum -a 256 "${{ env.ARCHIVE_NAME }}" | awk '{print $1}')
+          fi
+          
+          echo "Calculated SHA256: ${checksum}"
+          echo "${checksum}" > "${CHECKSUM_FILE}" # Save the checksum to a file
+          echo "CHECKSUM_FILE=${CHECKSUM_FILE}" >> $GITHUB_ENV # Store the checksum file name as an environment variable
+
+      - name: Upload Release Artifacts
+        uses: actions/upload-artifact@v4 # Upload the generated archives and checksums as build artifacts
+        with:
+          # Name the artifact using the repository name, tag, and OS for easy identification
+          name: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.os }}-release
+          path: |
+            ${{ env.ARCHIVE_NAME }} # Upload the compressed binary archive
+            ${{ env.CHECKSUM_FILE }} # Upload the SHA256 checksum file
+            # You can uncomment the line below if you also want to upload the raw executable
+            # ${{ env.EXE_FULL_PATH }}
+
+      - name: Homebrew Packaging (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo "This step would handle creating/updating your Homebrew formula."
+          echo "Typically, you'd have a separate 'homebrew-tap' repository (e.g., your-username/homebrew-tap)."
+          echo "You would clone that tap, update the 'totp-console.rb' formula with the new version and SHA256 (from this workflow's output),"
+          echo "commit the changes, and push them to your tap."
+          echo ""
+          echo "Example commands (conceptual, requires setup of your tap and GitHub token):"
+          echo "  # git clone https://github.com/your-username/homebrew-tap.git"
+          echo "  # cd homebrew-tap"
+          echo "  # # Use 'sed -i '' ' for macOS or 'sed -i' for Linux"
+          echo "  # sed -i '' 's|url \".*\"|url \"https://github.com/7086cmd/totp-console/releases/download/${{ github.ref_name }}/${{ env.ARCHIVE_NAME }}\"|' Formula/totp-console.rb"
+          echo "  # sed -i '' 's|sha256 \".*\"|sha256 \"$(cat ${{ env.CHECKSUM_FILE }})\"|' Formula/totp-console.rb"
+          echo "  # git config user.name 'github-actions[bot]'"
+          echo "  # git config user.email 'github-actions[bot]@users.noreply.github.com'"
+          echo "  # git add Formula/totp-console.rb"
+          echo "  # git commit -m \"totp-console: update to ${{ github.ref_name }}\""
+          echo "  # git push"
+        shell: bash
+
+      - name: APT (Debian/Ubuntu) Packaging (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "This step would handle creating a Debian (.deb) package."
+          echo "You typically need a 'debian/' directory in your project with control files (e.g., control, changelog, rules)."
+          echo "Tools like 'cargo-deb' (install with 'cargo install cargo-deb') can automate this for Rust projects."
+          echo ""
+          echo "Example commands (conceptual, requires 'cargo-deb' and debian/ directory setup):"
+          echo "  # cargo deb --output ../"
+          echo "  # echo 'A .deb file would be created in the parent directory, e.g., totp-console_${{ github.ref_name }}_amd64.deb'"
+          echo "  # You would then manually (or via another action) upload this .deb file to a PPA (Personal Package Archive) like Launchpad,"
+          echo "  # or a custom APT repository for others to install."
+        shell: bash
+
+      - name: Chocolatey Packaging (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "This step would handle creating and potentially pushing a Chocolatey (.nupkg) package."
+          echo "You need to set up a 'tools/' directory containing 'chocolateyinstall.ps1' and a '.nuspec' file."
+          echo ""
+          echo "Example commands (conceptual, requires Chocolatey CLI tools and API key for push):"
+          echo "  # choco pack # Creates the .nupkg file based on your .nuspec"
+          echo "  # echo 'A .nupkg file would be created, e.g., totp-console.${{ github.ref_name }}.nupkg'"
+          echo "  # choco push totp-console.${{ github.ref_name }}.nupkg --source https://push.chocolatey.org/"
+          echo "  # Note: Pushing to the Chocolatey community repository requires an API key, usually stored as a GitHub secret."
+        shell: bash

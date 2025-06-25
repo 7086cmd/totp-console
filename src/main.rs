@@ -255,14 +255,24 @@ fn print_usage() {
     println!("  sync                             Sync to Cloudflare KV");
     println!("  load                             Load from Cloudflare KV");
     println!();
+    println!("Cloudflare KV Configuration:");
+    println!("  Create a `kv.json` file with the following structure:");
+    println!("  {{");
+    println!("    \"account_id\": \"your_account_id\",");
+    println!("    \"namespace_id\": \"your_namespace_id\",");
+    println!("    \"api_token\": \"your_api_token\"");
+    println!("  }}");
+    println!();
     println!("Environment Variables (for Cloudflare KV):");
     println!("  CF_ACCOUNT_ID                    Cloudflare account ID");
     println!("  CF_NAMESPACE_ID                  KV namespace ID");
     println!("  CF_API_TOKEN                     API token");
     println!();
     println!("Examples:");
-    println!("  totp-console add github 0123456789ABCDEF GitHub");
-    println!("  totp-console get github");
-    println!("  totp-console loop");
-    println!("  totp-console loop github");
+    println!("  totp add github 0123456789ABCDEF GitHub");
+    println!("  totp get github");
+    println!("  totp loop");
+    println!("  totp loop github");
+    println!("  totp sync");
+    println!("  totp load");
 }

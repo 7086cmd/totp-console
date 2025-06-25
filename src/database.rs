@@ -2,7 +2,7 @@ use rusqlite::{Connection, Result as SqliteResult};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TOTPEntry {
+pub struct TotpEntry {
     pub(crate) id: Option<i64>,
     pub(crate) name: String,
     pub(crate) secret: String,
@@ -11,11 +11,11 @@ pub struct TOTPEntry {
 }
 
 // Database management
-pub struct TOTPDatabase {
+pub struct TotpDatabase {
     conn: Connection,
 }
 
-impl TOTPDatabase {
+impl TotpDatabase {
     pub(crate) fn new(db_path: &str) -> SqliteResult<Self> {
         let conn = Connection::open(db_path)?;
 
@@ -33,7 +33,7 @@ impl TOTPDatabase {
         Ok(Self { conn })
     }
 
-    pub(crate) fn add_entry(&self, entry: &TOTPEntry) -> SqliteResult<()> {
+    pub(crate) fn add_entry(&self, entry: &TotpEntry) -> SqliteResult<()> {
         let now = chrono::Utc::now().to_rfc3339();
 
         self.conn.execute(
@@ -45,13 +45,13 @@ impl TOTPDatabase {
         Ok(())
     }
 
-    pub(crate) fn get_all_entries(&self) -> SqliteResult<Vec<TOTPEntry>> {
+    pub(crate) fn get_all_entries(&self) -> SqliteResult<Vec<TotpEntry>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, name, secret, issuer, created_at FROM totp_entries ORDER BY name"
         )?;
 
         let entries = stmt.query_map([], |row| {
-            Ok(TOTPEntry {
+            Ok(TotpEntry {
                 id: Some(row.get(0)?),
                 name: row.get(1)?,
                 secret: row.get(2)?,
@@ -71,13 +71,13 @@ impl TOTPDatabase {
         Ok(result)
     }
 
-    pub(crate) fn get_entry_by_name(&self, name: &str) -> SqliteResult<Option<TOTPEntry>> {
+    pub(crate) fn get_entry_by_name(&self, name: &str) -> SqliteResult<Option<TotpEntry>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, name, secret, issuer, created_at FROM totp_entries WHERE name COLLATE NOCASE = ?1"
         )?;
 
         let mut entries = stmt.query_map([name], |row| {
-            Ok(TOTPEntry {
+            Ok(TotpEntry {
                 id: Some(row.get(0)?),
                 name: row.get(1)?,
                 secret: row.get(2)?,

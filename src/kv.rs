@@ -1,5 +1,5 @@
 use std::env;
-use crate::database::TOTPEntry;
+use crate::database::TotpEntry;
 use serde::{Deserialize, Serialize};
 
 // Cloudflare KV integration
@@ -19,7 +19,7 @@ impl CloudflareKV {
         }
     }
 
-    pub(crate) async fn sync_to_kv(&self, entries: &[TOTPEntry]) -> anyhow::Result<()> {
+    pub(crate) async fn sync_to_kv(&self, entries: &[TotpEntry]) -> anyhow::Result<()> {
         let client = reqwest::Client::new();
         let url = format!(
             "https://api.cloudflare.com/client/v4/accounts/{}/storage/kv/namespaces/{}/values/totp_entries",
@@ -45,7 +45,7 @@ impl CloudflareKV {
         Ok(())
     }
 
-    pub(crate) async fn load_from_kv(&self) -> anyhow::Result<Vec<TOTPEntry>> {
+    pub(crate) async fn load_from_kv(&self) -> anyhow::Result<Vec<TotpEntry>> {
         let client = reqwest::Client::new();
         let url = format!(
             "https://api.cloudflare.com/client/v4/accounts/{}/storage/kv/namespaces/{}/values/totp_entries",
@@ -59,7 +59,7 @@ impl CloudflareKV {
             .await?;
 
         if response.status().is_success() {
-            let entries: Vec<TOTPEntry> = response.json().await?;
+            let entries: Vec<TotpEntry> = response.json().await?;
             println!("✅ Loaded {} entries from Cloudflare KV", entries.len());
             Ok(entries)
         } else {

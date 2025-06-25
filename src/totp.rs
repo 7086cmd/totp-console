@@ -3,13 +3,13 @@ use sha1::{Digest, Sha1};
 
 // TOTP implementation
 #[derive(Debug, Clone)]
-pub(crate) struct TOTP {
+pub(crate) struct Totp {
     secret: Vec<u8>,
     time_step: u64,
     digits: usize,
 }
 
-impl TOTP {
+impl Totp {
     pub(crate) fn new(secret: Vec<u8>) -> Self {
         Self {
             secret,
@@ -40,12 +40,12 @@ impl TOTP {
             opad[i] ^= key[i];
         }
 
-        hasher.update(&ipad);
-        hasher.update(&counter_bytes);
+        hasher.update(ipad);
+        hasher.update(counter_bytes);
         let inner_hash = hasher.finalize_reset();
 
-        hasher.update(&opad);
-        hasher.update(&inner_hash);
+        hasher.update(opad);
+        hasher.update(inner_hash);
         let hmac = hasher.finalize();
 
         let offset = (hmac[19] & 0xf) as usize;

@@ -129,7 +129,7 @@ jobs:
           echo "commit the changes, and push them to your tap."
           echo ""
           echo "Example commands (conceptual, requires setup of your tap and GitHub token):"
-          echo "  # git clone https://github.com/your-username/homebrew-tap.git"
+          echo "  # git clone https://github.com/your-username/homebrew-tcarap.git"
           echo "  # cd homebrew-tap"
           echo "  # # Use 'sed -i '' ' for macOS or 'sed -i' for Linux"
           echo "  # sed -i '' 's|url \".*\"|url \"https://github.com/7086cmd/totp-console/releases/download/${{ github.ref_name }}/${{ env.ARCHIVE_NAME }}\"|' Formula/totp-console.rb"

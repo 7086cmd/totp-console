@@ -5,17 +5,17 @@ mod kv;
 
 use std::collections::HashMap;
 use std::env;
-use database::TOTPDatabase;
+use database::TotpDatabase;
 use crate::base32::base32_decode;
-use crate::database::TOTPEntry;
+use crate::database::TotpEntry;
 use crate::kv::get_cloudflare_kv;
-use crate::totp::TOTP;
+use crate::totp::Totp;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let db = TOTPDatabase::new("totp.db")?;
+    let db = TotpDatabase::new("totp.db")?;
 
-    let args = std::env::args().collect::<Vec<_>>();
+    let args = env::args().collect::<Vec<_>>();
 
     if args.len() < 2 {
         print_usage();
@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            let entry = TOTPEntry {
+            let entry = TotpEntry {
                 id: None,
                 name: name.clone(),
                 secret: secret.clone(),
@@ -84,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
             match db.get_entry_by_name(name)? {
                 Some(entry) => {
                     let secret = base32_decode(&entry.secret)?;
-                    let totp = TOTP::new(secret);
+                    let totp = Totp::new(secret);
                     let code = totp.generate()?;
                     let remaining = totp.time_remaining();
 
@@ -106,7 +106,7 @@ async fn main() -> anyhow::Result<()> {
             match db.get_entry_by_name(name)? {
                 Some(entry) => {
                     let secret = base32_decode(&entry.secret)?;
-                    let totp = TOTP::new(secret);
+                    let totp = Totp::new(secret);
                     let code = totp.generate()?;
                     let remaining = totp.time_remaining();
                     
@@ -168,7 +168,7 @@ async fn main() -> anyhow::Result<()> {
 
                 for entry in &entries {
                     let secret = base32_decode(&entry.secret)?;
-                    let totp = TOTP::new(secret);
+                    let totp = Totp::new(secret);
                     let code = totp.generate()?;
                     let remaining = totp.time_remaining();
 

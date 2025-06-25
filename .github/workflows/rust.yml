@@ -64,8 +64,7 @@ jobs:
       - name: Package Release Binary
         shell: bash # Use bash for cross-platform scripting
         run: |
-          # Use the repository name 'totp-console' as the binary name
-          BINARY_NAME="${{ github.event.repository.name }}"
+          BINARY_NAME="totp"
           TARGET_DIR="target/release"
           
           # Determine the full path to the executable and the archive name based on the OS
@@ -113,7 +112,7 @@ jobs:
         uses: actions/upload-artifact@v4 # Upload the generated archives and checksums as build artifacts
         with:
           # Name the artifact using the repository name, tag, and OS for easy identification
-          name: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.os }}-release
+          name: totp-${{ github.ref_name }}-${{ matrix.os }}-release
           path: |
             ${{ env.ARCHIVE_NAME }} # Upload the compressed binary archive
             ${{ env.CHECKSUM_FILE }} # Upload the SHA256 checksum file

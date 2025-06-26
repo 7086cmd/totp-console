@@ -7,9 +7,12 @@ edition = "2024"
 anyhow = "1.0.98"
 arboard = "3.5.0"
 chrono = { version = "0.4.41", features = ["serde"] }
+image = "0.25.6"
 reqwest = { version = "0.12.20", features = ["json"] }
+rqrr = "0.9.3"
 rusqlite = { version = "0.36.0", features = ["bundled"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 sha1 = "0.10.6"
 tokio = { version = "1.45.1", features = ["full"] }
+url = { version = "2.5.4", features = [] }

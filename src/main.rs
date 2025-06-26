@@ -2,6 +2,7 @@ mod base32;
 mod database;
 mod totp;
 mod kv;
+mod qrcode;
 
 use std::collections::HashMap;
 use std::env;
@@ -9,6 +10,7 @@ use database::TotpDatabase;
 use crate::base32::base32_decode;
 use crate::database::TotpEntry;
 use crate::kv::get_cloudflare_kv;
+use crate::qrcode::{read_totp_qr_from_file};
 use crate::totp::Totp;
 
 #[tokio::main]
@@ -52,6 +54,22 @@ async fn main() -> anyhow::Result<()> {
             match db.add_entry(&entry) {
                 Ok(_) => println!("✅ Added TOTP entry: {}", name),
                 Err(e) => eprintln!("❌ Failed to add entry: {}", e),
+            }
+        }
+        "read" => {
+            if args.len() != 3 {
+                eprintln!("❌ Usage: totp-console read <image_path>");
+                return Ok(());
+            }
+            let image_path = &args[2];
+            match read_totp_qr_from_file(image_path) {
+                Ok(entry) => {
+                    match db.add_entry(&entry) {
+                        Ok(_) => println!("✅ Added TOTP entry from image: {}", entry.name),
+                        Err(e) => eprintln!("❌ Failed to add entry: {}", e),
+                    }
+                }
+                Err(e) => eprintln!("❌ Error reading TOTP QR code: {}", e),
             }
         }
         "list" => {
@@ -191,7 +209,7 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 println!("\nPress Ctrl+C to exit live mode");
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(1_000)).await;
             }
         }
         "sync" => {

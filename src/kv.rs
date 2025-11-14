@@ -71,11 +71,10 @@ impl CloudflareKV {
 
 pub fn get_cloudflare_kv() -> Option<CloudflareKV> {
     // Read `kv.json`, and if it doesn't exist, use env vars.
-    if let Ok(file_content) = std::fs::read_to_string("kv.json") {
-        if let Ok(kv) = serde_json::from_str::<CloudflareKV>(&file_content) {
+    if let Ok(file_content) = std::fs::read_to_string("kv.json")
+        && let Ok(kv) = serde_json::from_str::<CloudflareKV>(&file_content) {
             return Some(kv);
         }
-    }
 
 
     let account_id = env::var("CF_ACCOUNT_ID").ok()?;

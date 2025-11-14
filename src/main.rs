@@ -249,6 +249,157 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
+        "export" => {
+            if args.len() < 3 {
+                eprintln!("❌ Usage: totp-console export <file_path>");
+                return Ok(());
+            }
+
+            let file_path = &args[2];
+            let entries = db.get_all_entries()?;
+
+            if entries.is_empty() {
+                eprintln!("⚠️  No entries to export");
+                return Ok(());
+            }
+
+            let json = serde_json::to_string_pretty(&entries)?;
+            std::fs::write(file_path, json)?;
+
+            println!("✅ Exported {} entries to {}", entries.len(), file_path);
+        }
+        "import" => {
+            if args.len() < 3 {
+                eprintln!("❌ Usage: totp-console import <file_path>");
+                return Ok(());
+            }
+
+            let file_path = &args[2];
+            let json = std::fs::read_to_string(file_path)?;
+            let entries: Vec<TotpEntry> = serde_json::from_str(&json)?;
+
+            let mut added = 0;
+            let mut skipped = 0;
+
+            for entry in entries {
+                // Validate secret
+                if base32_decode(&entry.secret).is_err() {
+                    eprintln!("⚠️  Skipped {} (invalid secret)", entry.name);
+                    skipped += 1;
+                    continue;
+                }
+
+                match db.add_entry(&entry) {
+                    Ok(_) => {
+                        added += 1;
+                    }
+                    Err(_) => {
+                        println!("⚠️  Skipped (already exists): {}", entry.name);
+                        skipped += 1;
+                    }
+                }
+            }
+
+            println!("📥 Imported {} entries, skipped {}", added, skipped);
+        }
+        "search" => {
+            if args.len() < 3 {
+                eprintln!("❌ Usage: totp-console search <query>");
+                return Ok(());
+            }
+
+            let query = &args[2];
+            let entries = db.search_entries(query)?;
+
+            if entries.is_empty() {
+                println!("🔍 No entries found matching '{}'", query);
+                return Ok(());
+            }
+
+            println!("🔍 Search Results for '{}':", query);
+            println!("================");
+
+            for entry in entries {
+                println!("🔑 {}", entry.name);
+                if let Some(issuer) = entry.issuer {
+                    println!("   Issuer: {}", issuer);
+                }
+                println!("   Created: {}", entry.created_at);
+                println!();
+            }
+        }
+        "update" => {
+            if args.len() < 3 {
+                eprintln!("❌ Usage: totp-console update <name> [--secret <secret>] [--issuer <issuer>]");
+                return Ok(());
+            }
+
+            let name = &args[2];
+            let mut new_secret: Option<&str> = None;
+            let mut new_issuer: Option<&str> = None;
+
+            let mut i = 3;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--secret" => {
+                        if i + 1 < args.len() {
+                            new_secret = Some(&args[i + 1]);
+                            i += 2;
+                        } else {
+                            eprintln!("❌ --secret requires a value");
+                            return Ok(());
+                        }
+                    }
+                    "--issuer" => {
+                        if i + 1 < args.len() {
+                            new_issuer = Some(&args[i + 1]);
+                            i += 2;
+                        } else {
+                            eprintln!("❌ --issuer requires a value");
+                            return Ok(());
+                        }
+                    }
+                    _ => {
+                        eprintln!("❌ Unknown flag: {}", args[i]);
+                        return Ok(());
+                    }
+                }
+            }
+
+            if new_secret.is_none() && new_issuer.is_none() {
+                eprintln!("❌ Please specify at least one field to update (--secret or --issuer)");
+                return Ok(());
+            }
+
+            // Validate new secret if provided
+            if let Some(secret) = new_secret
+                && base32_decode(secret).is_err() {
+                    eprintln!("❌ Invalid base32 secret");
+                    return Ok(());
+                }
+
+            if db.update_entry(name, new_secret, new_issuer)? {
+                println!("✅ Updated entry: {}", name);
+            } else {
+                eprintln!("❌ Entry not found: {}", name);
+            }
+        }
+        "info" => {
+            let (count, oldest) = db.get_stats()?;
+
+            println!("📊 Database Statistics");
+            println!("=====================");
+            println!("Total entries: {}", count);
+
+            if let Some(oldest_date) = oldest {
+                println!("Oldest entry: {}", oldest_date);
+            }
+
+            if count > 0 {
+                println!();
+                println!("Database file: totp.db");
+            }
+        }
         _ => {
             eprintln!("❌ Unknown command: {}", args[1]);
             print_usage();
@@ -266,12 +417,21 @@ fn print_usage() {
     println!("  add <name> <secret> [issuer]     Add a new TOTP entry");
     println!("  list                             List all entries");
     println!("  get <name>                       Get TOTP code for specific entry");
-    println!("  generate                         Generate codes for all entries");
-    println!("  delete <name>                    Delete an entry");
-    println!("  loop [name]                      Continuous refresh mode");
     println!("  copy <name>                      Copy TOTP code to clipboard");
+    println!("  delete <name>                    Delete an entry");
+    println!("  update <name> [options]          Update an existing entry");
+    println!("  search <query>                   Search entries by name or issuer");
+    println!("  loop [name]                      Continuous refresh mode");
+    println!("  info                             Show database statistics");
+    println!("  read <image_path>                Read TOTP from QR code image");
+    println!("  export <file_path>               Export entries to JSON file");
+    println!("  import <file_path>               Import entries from JSON file");
     println!("  sync                             Sync to Cloudflare KV");
     println!("  load                             Load from Cloudflare KV");
+    println!();
+    println!("Update Options:");
+    println!("  --secret <secret>                Update the secret key");
+    println!("  --issuer <issuer>                Update the issuer");
     println!();
     println!("Cloudflare KV Configuration:");
     println!("  Create a `kv.json` file with the following structure:");
@@ -289,6 +449,10 @@ fn print_usage() {
     println!("Examples:");
     println!("  totp add github 0123456789ABCDEF GitHub");
     println!("  totp get github");
+    println!("  totp update github --issuer \"GitHub Inc\"");
+    println!("  totp search git");
+    println!("  totp export backup.json");
+    println!("  totp import backup.json");
     println!("  totp loop");
     println!("  totp loop github");
     println!("  totp sync");
